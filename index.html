@@ -310,7 +310,7 @@
 
     let currentPersonalNotif = null;
 
-    // Конвертируем абсолютно любой ник в валидную почту
+    // Конвертируем ник в валидный email
     function nicknameToEmail(nick) {
       let res = "";
       for (let i = 0; i < nick.length; i++) {
@@ -319,7 +319,7 @@
       return "user_" + res + "@game.local";
     }
 
-    // Слушатель логина
+    // Слушатель состояния входа
     firebase.auth().onAuthStateChanged((user) => {
       tabContents.forEach(c => c.classList.remove('active'));
 
@@ -338,7 +338,7 @@
       }
     });
 
-    // РЕГИСТРАЦИЯ
+    // РЕГИСТРАЦИЯ (С АВТО-ВОССТАНОВЛЕНИЕМ ЕСЛИ УДАЛИЛ ИЗ БАЗЫ)
     document.getElementById('registerBtn').addEventListener('click', function(e) {
       e.preventDefault();
       const username = document.getElementById('usernameInput').value.trim();
@@ -375,19 +375,35 @@
           errEl.textContent = "";
         })
         .catch((err) => {
-          console.error(err);
-          errEl.style.color = "#ef4444";
+          // Если пользователь остался в Auth, но его нет в Database - войти и воссоздать!
           if (err.code === 'auth/email-already-in-use') {
-            errEl.textContent = "Игрок с таким ником уже есть! Жми 'Войти'.";
-          } else if (err.code === 'auth/operation-not-allowed') {
-            errEl.textContent = "Включи Email/Password в консоли Firebase!";
+            firebase.auth().signInWithEmailAndPassword(email, password)
+              .then((cred) => {
+                return firebase.database().ref('users/' + cred.user.uid).set({
+                  username: username,
+                  score: 0,
+                  combos: [],
+                  avatar: "https://i.ibb.co/MBtjqXQ/no-avatar.png",
+                  bgUrl: "",
+                  badge: "none"
+                });
+              })
+              .then(() => {
+                errEl.textContent = "";
+              })
+              .catch(() => {
+                errEl.style.color = "#ef4444";
+                errEl.textContent = "Ник занят! Выбери другой или проверь пароль.";
+              });
           } else {
+            console.error(err);
+            errEl.style.color = "#ef4444";
             errEl.textContent = "Ошибка: " + err.message;
           }
         });
     });
 
-    // ВОЙТИ (ИСПРАВЛЕНО: Авто-создание профиля при входе)
+    // ВХОД В АКТИВНЫЙ АККАУНТ
     document.getElementById('loginBtn').addEventListener('click', function(e) {
       e.preventDefault();
       const username = document.getElementById('usernameInput').value.trim();
@@ -431,7 +447,7 @@
         });
     });
 
-    // ВЫХОД
+    // ВЫХОД ИЗ АККАУНТА
     document.getElementById('logoutBtn').addEventListener('click', function() {
       firebase.auth().signOut();
     });
