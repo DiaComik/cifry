@@ -387,7 +387,7 @@
         });
     });
 
-    // ВОЙТИ
+    // ВОЙТИ (ИСПРАВЛЕНО: Авто-создание профиля при входе)
     document.getElementById('loginBtn').addEventListener('click', function(e) {
       e.preventDefault();
       const username = document.getElementById('usernameInput').value.trim();
@@ -405,6 +405,22 @@
       errEl.textContent = "Вход...";
 
       firebase.auth().signInWithEmailAndPassword(email, password)
+        .then((cred) => {
+          const userRef = firebase.database().ref('users/' + cred.user.uid);
+          
+          return userRef.once('value').then((snapshot) => {
+            if (!snapshot.exists()) {
+              return userRef.set({
+                username: username,
+                score: 0,
+                combos: [],
+                avatar: "https://i.ibb.co/MBtjqXQ/no-avatar.png",
+                bgUrl: "",
+                badge: "none"
+              });
+            }
+          });
+        })
         .then(() => {
           errEl.textContent = "";
         })
